@@ -49,7 +49,7 @@ void MultipleStreamsMultipleReaders(int frame_count, int stream_count) {
       up<StreamHandler> stream_handler =
           OpenStream("rtsp://10.1.10.250:555/AlHajj01.mp4");
       if (stream_handler == nullptr) {
-        std::cerr << i << "Failed to open stream\n";
+        std::cerr << i << " Failed to open stream\n";
         return;
       }
 
