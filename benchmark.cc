@@ -3,7 +3,6 @@
 #include "sys/resource.h"
 #include "utils.hpp"
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <future>
 #include <memory>
@@ -61,7 +60,6 @@ up<StreamHandler> OpenStream(i32 id, const std::string &uri,
 
 tup<u32, double> ReadNFrames(up<StreamHandler> stream_handler,
                                   u32 frame_count) {
-  u64 read_byte_count = 0;
   u32 read_frame_count = 0;
   size_t width = stream_handler->GetStreamWidth();
   size_t height = stream_handler->GetStreamHeight();
@@ -69,7 +67,6 @@ tup<u32, double> ReadNFrames(up<StreamHandler> stream_handler,
   double elapsed = utils::Timed([&] {
     for (i32 i = 0; i < frame_count; ++i) {
       vec<u8> bytes = stream_handler->PullSample();
-      read_byte_count += bytes.size();
       if (bytes.size() == width * height * 3) {
         ++read_frame_count;
       }
