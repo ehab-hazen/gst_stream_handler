@@ -1,28 +1,54 @@
 #include "benchmark/benchmark.h"
 #include "stream_handler.hpp"
+#include "utils.hpp"
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <future>
 #include <memory>
 #include <opencv2/core/base.hpp>
+#include <sstream>
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
 #include <vector>
 
+using i8 = int8_t;
+using i16 = int16_t;
+using i32 = int32_t;
+using i64 = int64_t;
+using u8 = uint8_t;
+using u16 = uint16_t;
+using u32 = uint32_t;
+using u64 = uint64_t;
+using str = std::string;
+
+template <typename T, int N> using arr = std::array<T, N>;
 template <typename T> using vec = std::vector<T>;
 template <typename T> using fut = std::future<T>;
 template <typename T> using up = std::unique_ptr<T>;
 template <typename T> using sp = std::shared_ptr<T>;
-using u64 = uint64_t;
+template <typename... Ts> using tup = std::tuple<Ts...>;
 
-constexpr int FRAME_COUNT = 2000;
+constexpr u32 FRAME_COUNT = 2000;
 
-// TODO: if a task fails, the others should take on its work
+const arr<str, 24> stream_uris = {
+    "rtsp://127.0.0.1:8554/stream", "rtsp://127.0.0.1:8555/stream",
+    "rtsp://127.0.0.1:8556/stream", "rtsp://127.0.0.1:8557/stream",
+    "rtsp://127.0.0.1:8558/stream", "rtsp://127.0.0.1:8559/stream",
+    "rtsp://127.0.0.1:8560/stream", "rtsp://127.0.0.1:8561/stream",
+    "rtsp://127.0.0.1:8562/stream", "rtsp://127.0.0.1:8563/stream",
+    "rtsp://127.0.0.1:8564/stream", "rtsp://127.0.0.1:8565/stream",
+    "rtsp://127.0.0.1:8566/stream", "rtsp://127.0.0.1:8567/stream",
+    "rtsp://127.0.0.1:8568/stream", "rtsp://127.0.0.1:8569/stream",
+    "rtsp://127.0.0.1:8570/stream", "rtsp://127.0.0.1:8571/stream",
+    "rtsp://127.0.0.1:8572/stream", "rtsp://127.0.0.1:8573/stream",
+    "rtsp://127.0.0.1:8574/stream", "rtsp://127.0.0.1:8575/stream",
+    "rtsp://127.0.0.1:8576/stream", "rtsp://127.0.0.1:8577/stream"};
 
-up<StreamHandler> OpenStream(const std::string &uri, int retry_count = 3) {
-  for (int i = 0; i < retry_count; ++i) {
-    up<StreamHandler> stream_handler = std::make_unique<StreamHandler>(uri);
+up<StreamHandler> OpenStream(i32 id, const std::string &uri, u32 retry_count = 3) {
+  for (i32 i = 0; i < retry_count; ++i) {
+    up<StreamHandler> stream_handler = std::make_unique<StreamHandler>(id, uri, 30);
     if (stream_handler->IsStreamOpen()) {
       return stream_handler;
     }
@@ -30,56 +56,78 @@ up<StreamHandler> OpenStream(const std::string &uri, int retry_count = 3) {
   return nullptr;
 }
 
-u64 ReadNFrames(up<StreamHandler> stream_handler, int frame_count) {
-  ino64_t read_byte_count = 0;
-  for (int i = 0; i < frame_count && stream_handler->IsStreamOpen(); ++i) {
-    vec<uint8_t> bytes = stream_handler->PullSample();
-    read_byte_count += bytes.size();
-  }
-  return read_byte_count;
+tup<u64, u32, double> ReadNFrames(up<StreamHandler> stream_handler,
+                                  u32 frame_count) {
+  u64 read_byte_count = 0;
+  u32 read_frame_count = 0;
+  size_t width = stream_handler->GetStreamWidth();
+  size_t height = stream_handler->GetStreamHeight();
+
+  double elapsed = utils::Timed([&] {
+    for (i32 i = 0; i < frame_count; ++i) {
+      vec<u8> bytes = stream_handler->PullSample();
+      read_byte_count += bytes.size();
+      if (bytes.size() == width * height * 3) {
+        ++read_frame_count;
+      }
+    }
+  });
+
+  return {read_byte_count, read_frame_count, elapsed};
 }
 
-void MultipleStreamsMultipleReaders(int frame_count, int stream_count) {
+/**
+ * @brief Open `stream_count` concurrent streams and read `frame_count` frames from each
+ */
+void ConcurrentStreams(u32 frame_count, u32 stream_count) {
   vec<fut<void>> tasks;
-  int base = frame_count / stream_count, remainder = frame_count % stream_count;
 
-  for (int i = 0; i < stream_count; ++i) {
-    int task_frame_count = base + (i < remainder ? 1 : 0);
-    auto task = [i, frame_count = task_frame_count]() {
-      up<StreamHandler> stream_handler =
-          OpenStream("rtsp://10.1.10.250:555/AlHajj01.mp4");
-      if (stream_handler == nullptr) {
-        std::cerr << i << " Failed to open stream\n";
-        return;
-      }
+  // Open a new stream and read N frames from it
+  auto task = [](i32 id, u32 frame_count) {
+    const std::string &stream_uri = stream_uris[id];
+    up<StreamHandler> stream_handler = OpenStream(id, stream_uri);
+    if (stream_handler == nullptr) {
+      std::cerr << "Failed to open stream_" << id << "\n";
+    } else {
+      std::ostringstream msg;
+      msg << "Stream [" << id << "]: Opened connnection, uri = " << stream_uri
+          << "\n";
+      std::cout << msg.str();
 
-      int width = stream_handler->GetStreamWidth(),
-          height = stream_handler->GetStreamHeight();
-      u64 read_frame_count =
+      size_t width = stream_handler->GetStreamWidth(),
+             height = stream_handler->GetStreamHeight();
+      auto [read_bytes, read_frames, elapsed] =
           ReadNFrames(std::move(stream_handler), frame_count);
 
-      std::cout << i << " Read " << read_frame_count << "/"
-                << u64(frame_count) * width * height * 3 << " bytes\n";
-    };
+      msg.str(""); // reset string
+      msg << "Stream [" << id << "]: " << " Read " << read_frames << "/"
+          << frame_count << " frames (" << read_bytes << " bytes) in "
+          << elapsed << "s, Frame rate = " << read_frames / elapsed << "\n";
+      std::cout << msg.str();
+    }
+  };
 
-    tasks.push_back(std::async(std::launch::async, task));
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  // Start N concurrent streams
+  for (i32 i = 0; i < stream_count; ++i) {
+    tasks.push_back(std::async(std::launch::async, task, i, frame_count));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
   }
 
-  for (int i = 0; i < stream_count; ++i) {
+  // Wait for all tasks to finish
+  for (i32 i = 0; i < stream_count; ++i) {
     tasks[i].get();
   }
 }
 
-static void BM_MultipleStreamsMultipleReaders(benchmark::State &state) {
-  int frame_count = state.range(0), stream_count = state.range(1);
+static void BM_ConcurrentStreams(benchmark::State &state) {
+  u32 frame_count = state.range(0), stream_count = state.range(1);
 
   for (auto _ : state) {
-    MultipleStreamsMultipleReaders(frame_count, stream_count);
+    ConcurrentStreams(frame_count, stream_count);
   }
 }
 
-BENCHMARK(BM_MultipleStreamsMultipleReaders)
+BENCHMARK(BM_ConcurrentStreams)
     ->Args({FRAME_COUNT, 1})
     ->Args({FRAME_COUNT, 2})
     ->Args({FRAME_COUNT, 4})

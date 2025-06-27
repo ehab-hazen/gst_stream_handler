@@ -23,9 +23,10 @@ public:
   StreamHandler() = delete;
   StreamHandler(const StreamHandler &) = delete;
 
-  StreamHandler(const std::string &stream_uri)
-      : stream_uri_(stream_uri), pipeline_(nullptr), is_stream_open_(true),
-        stream_width_(0), stream_height_(0) {
+  StreamHandler(int id, const std::string &stream_uri, int fps_limit)
+      : id_(id), stream_uri_(stream_uri), fps_limit_(fps_limit),
+        pipeline_(nullptr), is_stream_open_(true), stream_width_(0),
+        stream_height_(0) {
     InitGStreamer();
     CreateNewPipeline();
     UpdateAppsink();
@@ -46,9 +47,13 @@ public:
 
   bool IsStreamOpen() const { return is_stream_open_; }
 
+  int GetId() const { return id_; }
+
   size_t GetStreamWidth() const { return stream_width_; }
 
   size_t GetStreamHeight() const { return stream_height_; }
+
+  int GetFPSLimit() const { return fps_limit_; }
 
   vec<uint8_t> PullSample() {
     vec<uint8_t> bytes;
@@ -78,9 +83,11 @@ public:
   }
 
 private:
+  int id_;
   std::string stream_uri_;
   bool is_stream_open_;
 
+  int fps_limit_;
   int stream_width_;
   int stream_height_;
 
@@ -103,11 +110,25 @@ private:
 
   void CreateNewPipeline() {
     GError *error = nullptr;
-    std::string pipeline_str =
+    /*std::string pipeline_description =*/
+    /*    "uridecodebin uri=" + stream_uri_ +*/
+    /*    " ! videoconvert ! videorate"*/
+    /*    " ! video/x-raw,format=RGB,framerate=" + std::to_string(fps_limit_) +
+     * "/1"*/
+    /*    " ! appsink name=sink emit-signals=true sync=false";*/
+
+    const std::string frame_rate_caps =
+        "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";
+    const std::string kAppsinkCaps =
+        "video/x-raw,format=RGB,pixel-aspect-ratio=1/1";
+    std::string pipeline_description =
         "uridecodebin uri=" + stream_uri_ +
-        " ! videoconvert ! video/x-raw,format=RGB"
-        " ! appsink name=sink emit-signals=true sync=false";
-    pipeline_ = gst_parse_launch(pipeline_str.c_str(), &error);
+        " ! videoconvert ! videoscale !"
+        " videorate " +
+        frame_rate_caps + " ! queue max-size-buffers=3 leaky=downstream ! " +
+        "appsink sync=false name=sink caps=\"" + kAppsinkCaps + "\"";
+
+    pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
     CheckError(error);
 
     if (!pipeline_) {
@@ -134,7 +155,8 @@ private:
   }
 
   void UpdateStreamResolution() {
-    GstSample *sample = gst_app_sink_try_pull_sample(GST_APP_SINK(appsink_), INITIALIZATION_TIMEOUT_SECONDS * GST_SECOND);
+    GstSample *sample = gst_app_sink_try_pull_sample(
+        GST_APP_SINK(appsink_), INITIALIZATION_TIMEOUT_SECONDS * GST_SECOND);
     if (!sample) {
       std::cerr << "Failed to get initial sample for resolution\n";
       is_stream_open_ = false;
