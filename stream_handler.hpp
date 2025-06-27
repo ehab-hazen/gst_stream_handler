@@ -11,6 +11,7 @@
 #include "gst/video/video-info.h"
 #include <cstdint>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -38,10 +39,14 @@ public:
     is_stream_open_ = false;
     if (pipeline_) {
       gst_element_set_state(pipeline_, GST_STATE_NULL);
+      // Wait for state change to finish
+      gst_element_get_state(pipeline_, NULL, NULL, GST_CLOCK_TIME_NONE);
       gst_object_unref(pipeline_);
+      pipeline_ = nullptr;
     }
     if (appsink_) {
       gst_object_unref(appsink_);
+      appsink_ = nullptr;
     }
   }
 
@@ -158,7 +163,18 @@ private:
     GstSample *sample = gst_app_sink_try_pull_sample(
         GST_APP_SINK(appsink_), INITIALIZATION_TIMEOUT_SECONDS * GST_SECOND);
     if (!sample) {
-      std::cerr << "Failed to get initial sample for resolution\n";
+      GstState state;
+      GstState pending;
+      GstClockTime timeout = 100 * GST_MSECOND;
+      GstStateChangeReturn ret =
+          gst_element_get_state(pipeline_, &state, &pending, timeout);
+
+      std::ostringstream msg;
+      msg << "ERROR -- Pipeline state: " << gst_element_state_get_name(state)
+          << ", pending: " << gst_element_state_get_name(pending)
+          << ", return: " << ret << "\n";
+
+      std::cerr << msg.str();
       is_stream_open_ = false;
       return;
     }
