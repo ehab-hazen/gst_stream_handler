@@ -143,7 +143,7 @@ BENCHMARK(BM_ConcurrentStreams)
 
 /**
  * @brief Increase system's file descriptor limit for the current processes (and
- * it's children it any). This is required because the default limit of 1024 on
+ * it's children if any). This is required because the default limit of 1024 on
  * most systems is not enough for 24 streams since a single stream opens
  * multiple descriptors (the exact number will depend on the pipeline).
  */
