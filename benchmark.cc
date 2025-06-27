@@ -80,14 +80,9 @@ tup<u64, u32, double> ReadNFrames(up<StreamHandler> stream_handler,
 }
 
 /**
- * @brief Open `stream_count` concurrent streams and read `frame_count` frames
- * from each
+ * @brief Open a new stream and read N frames from it
  */
-void ConcurrentStreams(u32 frame_count, u32 stream_count) {
-  vec<fut<void>> tasks;
-
-  // Open a new stream and read N frames from it
-  auto task = [](i32 id, u32 frame_count) {
+void OpenStreamAndReadNFrames(i32 id, u32 frame_count) {
     const std::string &stream_uri = stream_uris[id];
     up<StreamHandler> stream_handler = OpenStream(id, stream_uri);
     if (stream_handler == nullptr) {
@@ -98,8 +93,6 @@ void ConcurrentStreams(u32 frame_count, u32 stream_count) {
           << "\n";
       std::cout << msg.str();
 
-      size_t width = stream_handler->GetStreamWidth(),
-             height = stream_handler->GetStreamHeight();
       auto [read_bytes, read_frames, elapsed] =
           ReadNFrames(std::move(stream_handler), frame_count);
 
@@ -109,11 +102,18 @@ void ConcurrentStreams(u32 frame_count, u32 stream_count) {
           << elapsed << "s, Frame rate = " << read_frames / elapsed << "\n";
       std::cout << msg.str();
     }
-  };
+  }
+
+/**
+ * @brief Open `stream_count` concurrent streams and read `frame_count` frames
+ * from each
+ */
+void ConcurrentStreams(u32 frame_count, u32 stream_count) {
+  vec<fut<void>> tasks;
 
   // Start N concurrent streams
   for (i32 i = 0; i < stream_count; ++i) {
-    tasks.push_back(std::async(std::launch::async, task, i, frame_count));
+    tasks.push_back(std::async(std::launch::async, OpenStreamAndReadNFrames, i, frame_count));
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
   }
 
