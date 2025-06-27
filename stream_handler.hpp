@@ -122,10 +122,10 @@ private:
      * "/1"*/
     /*    " ! appsink name=sink emit-signals=true sync=false";*/
 
-    const std::string frame_rate_caps =
-        "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";
     const std::string kAppsinkCaps =
         "video/x-raw,format=RGB,pixel-aspect-ratio=1/1";
+    const std::string frame_rate_caps =
+        "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";
     std::string pipeline_description =
         "uridecodebin uri=" + stream_uri_ +
         " ! videoconvert ! videoscale !"
@@ -165,12 +165,13 @@ private:
     if (!sample) {
       GstState state;
       GstState pending;
-      GstClockTime timeout = 100 * GST_MSECOND;
+      GstClockTime timeout = 15 * GST_SECOND;
       GstStateChangeReturn ret =
           gst_element_get_state(pipeline_, &state, &pending, timeout);
 
       std::ostringstream msg;
-      msg << "ERROR -- Pipeline state: " << gst_element_state_get_name(state)
+      msg << "Stream [" << id_
+          << "]: Pipeline state: " << gst_element_state_get_name(state)
           << ", pending: " << gst_element_state_get_name(pending)
           << ", return: " << ret << "\n";
 
