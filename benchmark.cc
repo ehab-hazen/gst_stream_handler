@@ -59,7 +59,7 @@ up<StreamHandler> OpenStream(i32 id, const std::string &uri,
   return nullptr;
 }
 
-tup<u64, u32, double> ReadNFrames(up<StreamHandler> stream_handler,
+tup<u32, double> ReadNFrames(up<StreamHandler> stream_handler,
                                   u32 frame_count) {
   u64 read_byte_count = 0;
   u32 read_frame_count = 0;
@@ -76,7 +76,7 @@ tup<u64, u32, double> ReadNFrames(up<StreamHandler> stream_handler,
     }
   });
 
-  return {read_byte_count, read_frame_count, elapsed};
+  return {read_frame_count, elapsed};
 }
 
 /**
@@ -93,12 +93,12 @@ void OpenStreamAndReadNFrames(i32 id, u32 frame_count) {
           << "\n";
       std::cout << msg.str();
 
-      auto [read_bytes, read_frames, elapsed] =
+      auto [read_frames, elapsed] =
           ReadNFrames(std::move(stream_handler), frame_count);
 
       msg.str(""); // reset string
       msg << "Stream [" << id << "]: " << " Read " << read_frames << "/"
-          << frame_count << " frames (" << read_bytes << " bytes) in "
+          << frame_count << " frames in "
           << elapsed << "s, Frame rate = " << read_frames / elapsed << "\n";
       std::cout << msg.str();
     }
@@ -132,13 +132,13 @@ static void BM_ConcurrentStreams(benchmark::State &state) {
 }
 
 BENCHMARK(BM_ConcurrentStreams)
-    ->Args({FRAME_COUNT, 1})
-    ->Args({FRAME_COUNT, 2})
-    ->Args({FRAME_COUNT, 4})
-    ->Args({FRAME_COUNT, 8})
-    ->Args({FRAME_COUNT, 12})
-    ->Args({FRAME_COUNT, 16})
-    ->Args({FRAME_COUNT, 20})
+    // ->Args({FRAME_COUNT, 1})
+    // ->Args({FRAME_COUNT, 2})
+    // ->Args({FRAME_COUNT, 4})
+    // ->Args({FRAME_COUNT, 8})
+    // ->Args({FRAME_COUNT, 12})
+    // ->Args({FRAME_COUNT, 16})
+    // ->Args({FRAME_COUNT, 20})
     ->Args({FRAME_COUNT, 24});
 
 /**
