@@ -1,5 +1,6 @@
 #include "benchmark/benchmark.h"
 #include "stream_handler.hpp"
+#include "sys/resource.h"
 #include "utils.hpp"
 #include <array>
 #include <chrono>
@@ -46,9 +47,11 @@ const arr<str, 24> stream_uris = {
     "rtsp://127.0.0.1:8574/stream", "rtsp://127.0.0.1:8575/stream",
     "rtsp://127.0.0.1:8576/stream", "rtsp://127.0.0.1:8577/stream"};
 
-up<StreamHandler> OpenStream(i32 id, const std::string &uri, u32 retry_count = 3) {
+up<StreamHandler> OpenStream(i32 id, const std::string &uri,
+                             u32 retry_count = 3) {
   for (i32 i = 0; i < retry_count; ++i) {
-    up<StreamHandler> stream_handler = std::make_unique<StreamHandler>(id, uri, 30);
+    up<StreamHandler> stream_handler =
+        std::make_unique<StreamHandler>(id, uri, 30);
     if (stream_handler->IsStreamOpen()) {
       return stream_handler;
     }
@@ -77,7 +80,8 @@ tup<u64, u32, double> ReadNFrames(up<StreamHandler> stream_handler,
 }
 
 /**
- * @brief Open `stream_count` concurrent streams and read `frame_count` frames from each
+ * @brief Open `stream_count` concurrent streams and read `frame_count` frames
+ * from each
  */
 void ConcurrentStreams(u32 frame_count, u32 stream_count) {
   vec<fut<void>> tasks;
@@ -137,4 +141,36 @@ BENCHMARK(BM_ConcurrentStreams)
     ->Args({FRAME_COUNT, 20})
     ->Args({FRAME_COUNT, 24});
 
-BENCHMARK_MAIN();
+/**
+ * @brief Increase system's file descriptor limit for the current processes (and
+ * it's children it any). This is required because the default limit of 1024 on
+ * most systems is not enough for 24 streams since a single stream opens
+ * multiple descriptors (the exact number will depend on the pipeline).
+ */
+static void IncreaseFileDescriptorLimit() {
+  rlimit rlim;
+  if (getrlimit(RLIMIT_NOFILE, &rlim)) {
+    perror("getrlimit failed");
+    return;
+  }
+
+  const rlim_t min_desired = 4096;
+  if (rlim.rlim_cur < min_desired) {
+    rlim.rlim_cur = std::min(min_desired, rlim.rlim_max);
+    if (setrlimit(RLIMIT_NOFILE, &rlim)) {
+      perror("setrlimit failed");
+    } else {
+      std::cout << "Raised file descriptor limit to " << rlim.rlim_cur << "\n";
+    }
+  }
+}
+
+int main(int argc, char **argv) {
+  IncreaseFileDescriptorLimit();
+  ::benchmark::Initialize(&argc, argv);
+  if (::benchmark::ReportUnrecognizedArguments(argc, argv))
+    return 1;
+  ::benchmark::RunSpecifiedBenchmarks();
+  ::benchmark::Shutdown();
+  return 0;
+}
