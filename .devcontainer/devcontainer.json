@@ -1,8 +1,10 @@
 {
-	"name": "Existing Dockerfile",
+	"name": "gst-stream-handler",
 	"build": {
 		"context": "..",
 		"dockerfile": "../Dockerfile"
 	},
-	"runArgs": ["--network=host", "--ipc=host", "--shm-size=2g"]
+	"runArgs": ["--network=host", "--ipc=host", "--shm-size=2g"],
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace"
 }
