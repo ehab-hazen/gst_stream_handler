@@ -12,10 +12,10 @@
 #include "gst/gstparse.h"
 #include "gst/gstsample.h"
 #include "gst/video/video-info.h"
+#include "logging.hpp"
 #include "types.hpp"
 #include <iostream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -72,8 +72,8 @@ class StreamHandler {
 
         GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(appsink_));
         if (!sample) {
-            std::cerr << "[StreamHandler][PullSample] Unable to read next "
-                         "frame -- Closing the stream\n";
+            ERROR << "[StreamHandler][PullSample] Unable to read next "
+                     "frame -- Closing the stream";
             is_stream_open_ = false;
             return bytes;
         }
@@ -117,7 +117,7 @@ class StreamHandler {
 
     void CheckError(GError *&error) {
         if (error) {
-            std::cerr << error->message << std::endl;
+            ERROR << error->message;
             g_clear_error(&error);
             is_stream_open_ = false;
         }
@@ -147,7 +147,7 @@ class StreamHandler {
         CheckError(error);
 
         if (!pipeline_) {
-            std::cerr << "Unable to create gstreamer pipeline\n";
+            ERROR << "Unable to create gstreamer pipeline";
             is_stream_open_ = false;
         }
     }
@@ -155,7 +155,7 @@ class StreamHandler {
     void UpdateAppsink() {
         appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "sink");
         if (!appsink_) {
-            std::cerr << "Unable to get app sink\n";
+            ERROR << "Unable to get app sink";
             is_stream_open_ = false;
         }
     }
@@ -164,7 +164,7 @@ class StreamHandler {
         GstStateChangeReturn ret =
             gst_element_set_state(pipeline_, GST_STATE_PLAYING);
         if (ret == GST_STATE_CHANGE_FAILURE) {
-            std::cerr << "Unable to start playing\n";
+            ERROR << "Unable to start playing";
             is_stream_open_ = false;
         }
     }
@@ -180,13 +180,10 @@ class StreamHandler {
             GstStateChangeReturn ret =
                 gst_element_get_state(pipeline_, &state, &pending, timeout);
 
-            std::ostringstream msg;
-            msg << "Stream [" << id_
-                << "]: Pipeline state: " << gst_element_state_get_name(state)
-                << ", pending: " << gst_element_state_get_name(pending)
-                << ", return: " << ret << "\n";
-
-            std::cerr << msg.str();
+            ERROR << "Stream [" << id_
+                  << "]: Pipeline state: " << gst_element_state_get_name(state)
+                  << ", pending: " << gst_element_state_get_name(pending)
+                  << ", return: " << ret;
             is_stream_open_ = false;
             return;
         }
@@ -194,11 +191,11 @@ class StreamHandler {
         GstCaps *caps = gst_sample_get_caps(sample);
         GstVideoInfo info;
         if (!caps) {
-            std::cerr << "Sample has no caps\n";
+            ERROR << "Sample has no caps";
             is_stream_open_ = false;
             return;
         } else if (!gst_video_info_from_caps(&info, caps)) {
-            std::cerr << "Failed to parse video info from caps\n";
+            ERROR << "Failed to parse video info from caps";
             is_stream_open_ = false;
             return;
         } else {

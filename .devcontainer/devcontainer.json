@@ -4,7 +4,7 @@
 		"context": "..",
 		"dockerfile": "../Dockerfile"
 	},
-	"runArgs": ["--network=host", "--ipc=host", "--shm-size=2g"],
+	"runArgs": ["--network=host", "--ipc=host", "--shm-size=2g", "--gpus=all"],
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace"
 }

@@ -1,16 +1,24 @@
-FROM gcc:latest
+FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install dependencies
 RUN apt update && apt install -y \
     cmake \
+    git \
     pkg-config \
     libcxxopts-dev \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     libgstrtspserver-1.0-dev \
-    libopencv-dev \
     libbenchmark-dev \
- && rm -rf /var/lib/apt/lists/*
+    libgoogle-glog-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install NVML and dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnvidia-ml-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # OpenCV dependencies
 RUN ln -sf /usr/bin/gfortran-12 /usr/bin/gfortran || true && \

@@ -23,6 +23,9 @@ find_package(OpenCV REQUIRED)
 
 add_executable(stream_handler main.cc)
 
+find_library(NVML_LIB NAMES nvidia-ml REQUIRED)
+find_library(GLOG_LIB NAMES glog REQUIRED)
+
 target_include_directories(stream_handler PRIVATE
     ${GST_INCLUDE_DIRS}
     ${GST_APP_INCLUDE_DIRS}
@@ -40,6 +43,8 @@ target_link_libraries(stream_handler
     ${GST_APP_LIBRARIES}
     ${GST_VIDEO_LIBRARIES}
     ${OpenCV_LIBS}
+    ${NVML_LIB}
+    ${GLOG_LIB}
     cxxopts::cxxopts
 )
 

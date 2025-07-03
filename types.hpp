@@ -25,4 +25,5 @@ template <typename T> using fut = std::future<T>;
 template <typename T> using up = std::unique_ptr<T>;
 template <typename T> using sp = std::shared_ptr<T>;
 template <typename T> using opt = std::optional<T>;
+template <typename T> using atm = std::atomic<T>;
 template <typename... Ts> using tup = std::tuple<Ts...>;

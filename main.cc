@@ -1,4 +1,7 @@
+#include "argparse.hpp"
 #include "iostream"
+#include "logging.hpp"
+#include "resource_monitor.hpp"
 #include "stream_handler.hpp"
 #include "types.hpp"
 #include "utils.hpp"
@@ -6,6 +9,7 @@
 #include <cstdlib>
 #include <cxxopts.hpp>
 #include <future>
+#include <glog/logging.h>
 #include <thread>
 
 /**
@@ -21,70 +25,71 @@ u32 ReadNFrames(up<StreamHandler> stream_handler, u32 frame_count) {
         if (bytes.size() == width * height * 3) {
             ++read_count;
         } else {
-            std::cout << "Stream [" << stream_handler->GetId() << "]: Read "
-                      << bytes.size() << "/" << width * height * 3
-                      << " bytes\n";
+            INFO << "Stream [" << stream_handler->GetId() << "]: Read "
+                 << bytes.size() << "/" << width * height * 3 << " bytes";
         }
     }
     return read_count;
 }
 
 void OpenAndReadStream(i32 id, u32 frame_count) {
-    std::ostringstream msg;
-
     std::string stream_uri =
         "rtsp://127.0.0.1:" + std::to_string(8554 + id) + "/stream";
     up<StreamHandler> stream_handler =
         StreamHandler::OpenStream(id, stream_uri);
     if (stream_handler == nullptr) {
-        msg << "Stream [" << id << "]: Failed to open stream\n";
-        std::cout << msg.str();
+        ERROR << "Stream [" << id << "]: Failed to open stream";
     } else {
-        msg << "Stream [" << id << "]: Opened stream, uri = " << stream_uri
-            << "\n";
-        std::cout << msg.str();
-        msg.str("");
+        INFO << "Stream [" << id << "]: Opened stream, uri = " << stream_uri;
 
         auto [elapsed, read_count] = utils::TimedResult(
             ReadNFrames, std::move(stream_handler), frame_count);
 
-        msg << "Stream [" << id << "]: Read " << read_count << "/"
-            << frame_count << " in " << elapsed
-            << "s, FPS = " << read_count / elapsed << "\n";
-        std::cout << msg.str();
+        double fps = read_count / elapsed;
+        INFO << "Stream [" << id << "]: Read " << read_count << "/"
+             << frame_count << " in " << elapsed << "s, FPS = " << fps;
     }
 }
 
-cxxopts::ParseResult ParseArgs(int argc, char **argv) {
-    cxxopts::Options options("Gst stream handler");
-    options.add_options()(
-        "f,frame_count",
-        "The number of frames each stream will try to read. Make sure that the "
-        "remote rtsp stream has enough frames.",
-        cxxopts::value<u32>())(
-        "s,stream_count",
-        "The number of concurrent streams to run, make sure there are atleast "
-        "as many active rtsp servers running locally on different ports. The "
-        "port numbers must start from 8554 and increment by 1 for each "
-        "additional server.",
-        cxxopts::value<u32>());
-    cxxopts::ParseResult result = options.parse(argc, argv);
-    if (!result.count("frame_count") || !result.count("stream_count")) {
-        std::cout << options.help();
-        std::exit(1);
-    }
-    return result;
+auto StartResourceMonitor(const ResourceMonitor &resource_monitor,
+                          const atm<bool> &stop) {
+    return std::async(std::launch::async, [&stop, &resource_monitor]() {
+        // Log GPU metadata
+        for (u32 i = 0; i < resource_monitor.GpuDeviceCount(); ++i) {
+            const auto &meta = resource_monitor.GetGpuMetadata(i);
+            INFO << "GPU " << i << ": " << meta.name
+                 << ", Memory: " << meta.memory_total << " MB"
+                 << ", Power Limit: " << meta.power_limit << " mW"
+                 << ", Max GPU Clock: " << meta.max_gpu_clock << " MHz"
+                 << ", Max Mem Clock: " << meta.max_mem_clock << " MHz";
+        }
+
+        resource_monitor.LogCpuRamMetadata();
+        return resource_monitor.Run(stop);
+    });
+}
+
+cxxopts::ParseResult Init(int argc, char **argv) {
+    utils::IncreaseFileDescriptorLimit();
+    google::InitGoogleLogging(argv[0]);
+    FLAGS_minloglevel = 0;
+    fLB::FLAGS_logtostderr = true;
+    return ParseArgs(argc, argv);
 }
 
 int main(i32 argc, char **argv) {
-    cxxopts::ParseResult args = ParseArgs(argc, argv);
-    utils::IncreaseFileDescriptorLimit();
+    cxxopts::ParseResult args = Init(argc, argv);
 
     u32 frame_count = args["frame_count"].as<u32>(),
         stream_count = args["stream_count"].as<u32>();
     vec<fut<void>> tasks;
+    atm<bool> stop = false;
+
+    ResourceMonitor resource_monitor(2);
+    auto metrics = StartResourceMonitor(resource_monitor, stop);
 
     // Start N concurrent streams
+    INFO << "Starting " << stream_count << " concurrent streams";
     for (u32 id = 0; id < stream_count; ++id) {
         fut<void> f =
             std::async(std::launch::async, OpenAndReadStream, id, frame_count);
@@ -97,6 +102,10 @@ int main(i32 argc, char **argv) {
     for (u32 i = 0; i < stream_count; ++i) {
         tasks[i].get();
     }
+
+    // Stop resource monitor
+    stop.store(true);
+    utils::SaveResourceUsageMetricsCsv(args, resource_monitor, metrics.get());
 
     return 0;
 }
