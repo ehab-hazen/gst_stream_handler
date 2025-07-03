@@ -9,7 +9,7 @@
 #include <cstdlib>
 #include <cxxopts.hpp>
 #include <future>
-#include <glog/logging.h>
+#include <glog/log_severity.h>
 #include <thread>
 
 /**
@@ -72,11 +72,23 @@ auto StartResourceMonitor(const ResourceMonitor &resource_monitor,
 }
 
 cxxopts::ParseResult Init(int argc, char **argv) {
+    cxxopts::ParseResult args = ParseArgs(argc, argv);
+
     utils::IncreaseFileDescriptorLimit();
+
     google::InitGoogleLogging(argv[0]);
     FLAGS_minloglevel = 0;
-    fLB::FLAGS_logtostderr = true;
-    return ParseArgs(argc, argv);
+    fLB::FLAGS_alsologtostderr = true;
+    google::SetLogDestination(google::GLOG_INFO,
+                              args["log_file"].as<std::string>().c_str());
+    google::SetLogDestination(google::GLOG_WARNING,
+                              args["log_file"].as<std::string>().c_str());
+    google::SetLogDestination(google::GLOG_ERROR,
+                              args["log_file"].as<std::string>().c_str());
+    google::SetLogDestination(google::GLOG_FATAL,
+                              args["log_file"].as<std::string>().c_str());
+
+    return args;
 }
 
 int main(i32 argc, char **argv) {

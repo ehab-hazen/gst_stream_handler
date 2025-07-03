@@ -21,9 +21,10 @@ static inline cxxopts::ParseResult ParseArgs(int argc, char **argv) {
                                "Number of (resource usage) "
                                "samples to collect per second.",
                                cxxopts::value<u32>()->default_value("2"))(
+        "l,log_file", "Path to log file, for all log levels.",
+        cxxopts::value<std::string>()->default_value("./log"))(
         "m,metrics_csv",
-        "Path to csv file where usage metrics should be saved."
-        "./metrics.csv",
+        "Path to csv file where usage metrics should be saved.",
         cxxopts::value<std::string>()->default_value("./metrics.csv"));
     cxxopts::ParseResult result = options.parse(argc, argv);
     if (!result.count("frame_count") || !result.count("stream_count")) {
