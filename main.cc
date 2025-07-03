@@ -40,7 +40,9 @@ void OpenAndReadStream(i32 id, u32 frame_count) {
     if (stream_handler == nullptr) {
         ERROR << "Stream [" << id << "]: Failed to open stream";
     } else {
-        INFO << "Stream [" << id << "]: Opened stream, uri = " << stream_uri;
+        INFO << "Stream [" << id << "]: Opened stream, uri = " << stream_uri
+             << ", stream size = " << stream_handler->GetStreamWidth() << "x"
+             << stream_handler->GetStreamHeight();
 
         auto [elapsed, read_count] = utils::TimedResult(
             ReadNFrames, std::move(stream_handler), frame_count);
