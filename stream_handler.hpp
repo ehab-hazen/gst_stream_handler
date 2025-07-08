@@ -1,5 +1,6 @@
 #pragma once
 
+#include "frame_proxy.hpp"
 #include "glib.h"
 #include "gst/app/gstappsink.h"
 #include "gst/gst.h"
@@ -14,6 +15,7 @@
 #include "gst/video/video-info.h"
 #include "logging.hpp"
 #include "types.hpp"
+#include <cstddef>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -64,10 +66,9 @@ class StreamHandler {
 
     int GetFPSLimit() const { return fps_limit_; }
 
-    vec<u8> PullSample() {
-        vec<u8> bytes;
+    opt<FrameProxy> PullSample() {
         if (!is_stream_open_) {
-            return bytes;
+            return std::nullopt;
         }
 
         GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(appsink_));
@@ -75,19 +76,16 @@ class StreamHandler {
             ERROR << "[StreamHandler][PullSample] Unable to read next "
                      "frame -- Closing the stream";
             is_stream_open_ = false;
-            return bytes;
+            return std::nullopt;
         }
 
         GstBuffer *buffer = gst_sample_get_buffer(sample);
         GstMapInfo map;
         if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-            bytes.assign(map.data, map.data + map.size);
-            gst_buffer_unmap(buffer, &map);
-            gst_sample_unref(sample);
-            return bytes;
+            return std::make_optional<FrameProxy>(sample, buffer, map);
         } else {
             gst_sample_unref(sample);
-            return bytes;
+            return std::nullopt;
         }
     }
 

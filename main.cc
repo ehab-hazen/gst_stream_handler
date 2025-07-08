@@ -1,4 +1,5 @@
 #include "argparse.hpp"
+#include "frame_proxy.hpp"
 #include "iostream"
 #include "logging.hpp"
 #include "resource_monitor.hpp"
@@ -21,12 +22,13 @@ u32 ReadNFrames(up<StreamHandler> stream_handler, u32 frame_count) {
            height = stream_handler->GetStreamHeight();
 
     for (u32 i = 0; i < frame_count && stream_handler->IsStreamOpen(); ++i) {
-        vec<u8> bytes = stream_handler->PullSample();
-        if (bytes.size() == width * height * 3) {
+        opt<FrameProxy> frame_proxy = stream_handler->PullSample();
+        if (frame_proxy && frame_proxy->size() == width * height * 3) {
             ++read_count;
         } else {
             INFO << "Stream [" << stream_handler->GetId() << "]: Read "
-                 << bytes.size() << "/" << width * height * 3 << " bytes";
+                 << frame_proxy->size() << "/" << width * height * 3
+                 << " bytes";
         }
     }
     return read_count;
@@ -78,7 +80,6 @@ cxxopts::ParseResult Init(int argc, char **argv) {
 
     google::InitGoogleLogging(argv[0]);
     FLAGS_minloglevel = 0;
-    fLB::FLAGS_alsologtostderr = true;
     google::SetLogDestination(google::GLOG_INFO,
                               args["log_file"].as<std::string>().c_str());
     google::SetLogDestination(google::GLOG_WARNING,
