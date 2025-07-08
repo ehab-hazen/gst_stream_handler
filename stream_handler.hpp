@@ -132,18 +132,41 @@ class StreamHandler {
     void CreateNewPipeline() {
         GError *error = nullptr;
 
-        const std::string kAppsinkCaps =
-            "video/x-raw,format=RGB,pixel-aspect-ratio=1/1";
         const std::string frame_rate_caps =
             "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";
-        const std::string pipeline_description =
-            "uridecodebin uri=" + stream_uri_ +
-            " ! videoconvert ! videoscale !"
-            " videorate " +
+        std::string pipeline_description =
+            "nvurisrcbin uri=" + stream_uri_ +
+            " ! nvvideoconvert"
+            " ! video/x-raw, format=RGB"
+            " ! videorate " +
             frame_rate_caps +
-            " ! queue max-size-buffers=3 leaky=downstream ! " +
-            "appsink sync=false name=sink caps=\"" + kAppsinkCaps + "\"";
+            " ! queue max-size-buffers=3 leaky=downstream"
+            " ! appsink sync=false name=sink";
+
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
+
+        if (error || !pipeline_) {
+            if (error) {
+                std::cerr << "Stream [" << id_ << "]: " << error->message
+                          << "\n";
+                g_clear_error(&error);
+            }
+            std::cerr << "Stream [" << id_
+                      << "]: [StreamHandler][CreateNewPipeline] Unable to use "
+                         "hardware acceleration, falling back to "
+                         "software elements\n";
+
+            const std::string kAppsinkCaps = "";
+            pipeline_description =
+                "uridecodebin uri=" + stream_uri_ +
+                " ! videoconvert ! videoscale !"
+                " videorate " +
+                frame_rate_caps +
+                " ! queue max-size-buffers=3 leaky=downstream ! " +
+                "appsink sync=false name=sink "
+                "caps=\"video/x-raw,format=RGB,pixel-aspect-ratio=1/1\"";
+            pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
+        }
         CheckError(error);
 
         if (!pipeline_) {

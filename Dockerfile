@@ -1,10 +1,17 @@
-FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+FROM nvcr.io/nvidia/deepstream:7.1-gc-triton-devel
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
+# Create a vscode user
+RUN useradd -ms /bin/bash vscode
+
+# Enable access to video driver libs
+ENV NVIDIA_DRIVER_CAPABILITIES $NVIDIA_DRIVER_CAPABILITIES,video
+
+# Install development tools
 RUN apt update && apt install -y \
     cmake \
+    build-essential \
     git \
     pkg-config \
     libcxxopts-dev \
@@ -15,14 +22,8 @@ RUN apt update && apt install -y \
     libgoogle-glog-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install NVML and dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libnvidia-ml-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # OpenCV dependencies
-RUN ln -sf /usr/bin/gfortran-12 /usr/bin/gfortran || true && \
-    apt-get update &&\
+RUN apt-get update &&\
     apt-get install -y \
     libblas-dev \
     liblapack-dev \
@@ -60,6 +61,12 @@ RUN apt-get update &&\
     make -j"$(nproc)" install && \
     ln -s /usr/local/include/opencv4/opencv2 /usr/local/include/opencv2
 
+# Install NVML
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnvidia-ml-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /workspace
 
+# Set default shell for dev
 CMD ["/bin/bash"]
