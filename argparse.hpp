@@ -20,7 +20,7 @@ static inline cxxopts::ParseResult ParseArgs(int argc, char **argv) {
         cxxopts::value<u32>())("r,refresh_rate",
                                "Number of (resource usage) "
                                "samples to collect per second.",
-                               cxxopts::value<u32>()->default_value("2"))(
+                               cxxopts::value<u32>()->default_value("1"))(
         "l,log_file", "Path to log file, for all log levels.",
         cxxopts::value<std::string>()->default_value("./log"))(
         "m,metrics_csv",
