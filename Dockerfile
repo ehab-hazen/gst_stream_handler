@@ -60,6 +60,8 @@ RUN apt-get update &&\
     make -j"$(nproc)" install && \
     ln -s /usr/local/include/opencv4/opencv2 /usr/local/include/opencv2
 
+RUN apt install -y gstreamer1.0-libav
+
 WORKDIR /workspace
 
 CMD ["/bin/bash"]
