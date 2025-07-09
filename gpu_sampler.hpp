@@ -20,21 +20,28 @@ class GpuSampler {
         u32 power_;
         u32 temperature_;
 
-        u32 gpu_clocks_;
+        u32 graphics_clocks_;
         u32 mem_clocks_;
         u32 sm_clocks_;
         u32 vid_clocks_;
+
+        u32 graphics_clock_util_;
+        u32 mem_clock_util_;
+        u32 sm_clock_util_;
+        u32 vid_clock_util_;
 
         u32 encoder_utilization_;
         u32 decoder_utilization_;
     };
 
     struct Metadata {
-        std::string name;
-        u32 memory_total;
-        u32 power_limit;
-        u32 max_gpu_clock;
-        u32 max_mem_clock;
+        std::string name_;
+        u32 memory_total_;
+        u32 power_limit_;
+        u32 sm_max_clock_;
+        u32 vid_max_clock_;
+        u32 graphics_max_clock_;
+        u32 mem_max_clock_;
     };
 
     using Metrics = vec<Metric>;
@@ -63,18 +70,25 @@ class GpuSampler {
             nvmlUtilization_t utilization;
             u32 ignore;
 
+            // Temperature & Power
             nvmlDeviceGetTemperature(devices_[i], NVML_TEMPERATURE_GPU,
                                      &metric.temperature_);
-            nvmlDeviceGetUtilizationRates(devices_[i], &utilization);
             nvmlDeviceGetPowerUsage(devices_[i], &metric.power_);
 
+            // SM compute & VRAM utilization
+            nvmlDeviceGetUtilizationRates(devices_[i], &utilization);
+            metric.gpu_ = utilization.gpu;
+            metric.memory_ = utilization.memory;
+
+            // Video Encoder & Decoder utilization
             nvmlDeviceGetEncoderUtilization(
                 devices_[i], &metric.encoder_utilization_, &ignore);
             nvmlDeviceGetDecoderUtilization(
                 devices_[i], &metric.decoder_utilization_, &ignore);
 
+            // clock frequencies
             nvmlDeviceGetClockInfo(devices_[i], NVML_CLOCK_GRAPHICS,
-                                   &metric.gpu_clocks_);
+                                   &metric.graphics_clocks_);
             nvmlDeviceGetClockInfo(devices_[i], NVML_CLOCK_MEM,
                                    &metric.mem_clocks_);
             nvmlDeviceGetClockInfo(devices_[i], NVML_CLOCK_VIDEO,
@@ -82,8 +96,15 @@ class GpuSampler {
             nvmlDeviceGetClockInfo(devices_[i], NVML_CLOCK_SM,
                                    &metric.sm_clocks_);
 
-            metric.gpu_ = utilization.gpu;
-            metric.memory_ = utilization.memory;
+            // clock utilization
+            metric.sm_clock_util_ =
+                metric.sm_clocks_ / metadata_[i].sm_max_clock_;
+            metric.mem_clock_util_ =
+                metric.mem_clocks_ / metadata_[i].mem_max_clock_;
+            metric.vid_clock_util_ =
+                metric.vid_clocks_ / metadata_[i].vid_max_clock_;
+            metric.graphics_clock_util_ =
+                metric.graphics_clocks_ / metadata_[i].graphics_max_clock_;
 
             metrics.push_back(metric);
         }
@@ -134,16 +155,20 @@ class GpuSampler {
         Metadata meta{};
         char name_buf[64];
         nvmlDeviceGetName(device, name_buf, sizeof(name_buf));
-        meta.name = name_buf;
+        meta.name_ = name_buf;
 
         nvmlMemory_t mem;
         nvmlDeviceGetMemoryInfo(device, &mem);
-        meta.memory_total = mem.total / 1024 / 1024;
+        meta.memory_total_ = mem.total / 1024 / 1024;
 
-        nvmlDeviceGetPowerManagementLimit(device, &meta.power_limit);
+        nvmlDeviceGetPowerManagementLimit(device, &meta.power_limit_);
+
         nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_GRAPHICS,
-                                  &meta.max_gpu_clock);
-        nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_MEM, &meta.max_mem_clock);
+                                  &meta.graphics_max_clock_);
+        nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_MEM, &meta.mem_max_clock_);
+        nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_VIDEO,
+                                  &meta.vid_max_clock_);
+        nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_SM, &meta.sm_max_clock_);
 
         return meta;
     }
