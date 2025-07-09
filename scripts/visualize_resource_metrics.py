@@ -89,7 +89,7 @@ with PdfPages('resource_metrics_report.pdf') as pdf:
 
         # 5) GPU power draw (separate)
         fig = plt.figure(figsize=(6, 3))
-        plt.plot(t, df[prefix + 'power'])
+        plt.plot(t, df[prefix + 'power'] / 1000)
         plt.xlabel('Time (s)')
         plt.ylabel('Power (W)')
         plt.title(f'GPU {g} Power Consumption')
