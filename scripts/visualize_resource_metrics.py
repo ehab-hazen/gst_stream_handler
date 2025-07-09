@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
 import sys
+import re
+import textwrap
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 # === Parse args ===
-if len(sys.argv) < 2:
-    print(f"Usage: {sys.argv[0]} <metrics_csv_file>")
+if len(sys.argv) < 3:
+    print(f"Usage: {sys.argv[0]} <metrics_csv_file> <log_file>")
     sys.exit(1)
 csv_path = sys.argv[1]
+
+log_file_timestamp = re.search(r'log(\d+-\d+\.\d+)', sys.argv[2]).group(1).replace('.', '-')
+pdf_filename = f'resource_metrics_report{log_file_timestamp}.pdf'
 
 # === Load CSV ===
 df = pd.read_csv(csv_path)
@@ -20,8 +25,8 @@ core_cols   = [c for c in df.columns if c.startswith('cpu') and c.endswith('_usa
 gpu_indices = sorted({int(c.split('_')[0][3:]) for c in df.columns if c.startswith('gpu')})
 
 # === Create PDF ===
-print("Generating resource_metrics_report.pdf...")
-with PdfPages('resource_metrics_report.pdf') as pdf:
+print(f"Generating {pdf_filename}...")
+with PdfPages(pdf_filename) as pdf:
 
     # — CPU cores usage —
     fig = plt.figure(figsize=(10, 4))
@@ -94,6 +99,24 @@ with PdfPages('resource_metrics_report.pdf') as pdf:
         plt.ylabel('Power (W)')
         plt.title(f'GPU {g} Power Consumption')
         plt.tight_layout()
+        pdf.savefig(fig)
+        plt.close(fig)
+
+    # 6) write logs
+    with open(sys.argv[2], 'r') as f:
+        text = f.read().replace('\t', '    ')
+
+    lines = text.splitlines()
+    wrapped_lines = []
+    for line in lines:
+        wrapped_lines.extend(textwrap.wrap(line, width=130))  # wrap long lines
+
+    lines_per_page = 85
+    for i in range(0, len(wrapped_lines), lines_per_page):
+        fig = plt.figure(figsize=(8.5, 11))
+        plt.axis('off')
+        page_text = '\n'.join(wrapped_lines[i:i + lines_per_page])
+        plt.text(0, 1, page_text, ha='left', va='top', wrap=True, fontsize=7)
         pdf.savefig(fig)
         plt.close(fig)
 
