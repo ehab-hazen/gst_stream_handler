@@ -85,6 +85,8 @@ SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
     for (u32 g = 0; g < resource_monitor.GpuDeviceCount(); ++g) {
         out << ",gpu" << g << "_util"
             << ",gpu" << g << "_mem"
+            << ",gpu" << g << "_enc_util"
+            << ",gpu" << g << "_dec_util"
             << ",gpu" << g << "_temp"
             << ",gpu" << g << "_power"
             << ",gpu" << g << "_gpu_clock"
@@ -116,9 +118,11 @@ SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
         out << "," << ram_kb;
 
         for (const auto &g : gpu_metric) {
-            out << "," << g.gpu_ << "," << g.memory_ << "," << g.temperature_
-                << "," << g.power_ << "," << g.gpu_clocks_ << ","
-                << g.mem_clocks_ << "," << g.sm_clocks_ << "," << g.vid_clocks_;
+            out << "," << g.gpu_ << "," << g.memory_ << ","
+                << g.encoder_utilization_ << "," << g.decoder_utilization_
+                << "," << g.temperature_ << "," << g.power_ << ","
+                << g.gpu_clocks_ << "," << g.mem_clocks_ << "," << g.sm_clocks_
+                << "," << g.vid_clocks_;
         }
 
         out << "\n";

@@ -24,6 +24,9 @@ class GpuSampler {
         u32 mem_clocks_;
         u32 sm_clocks_;
         u32 vid_clocks_;
+
+        u32 encoder_utilization_;
+        u32 decoder_utilization_;
     };
 
     struct Metadata {
@@ -58,11 +61,17 @@ class GpuSampler {
         for (u32 i = 0; i < device_count_; ++i) {
             Metric metric;
             nvmlUtilization_t utilization;
+            u32 ignore;
 
             nvmlDeviceGetTemperature(devices_[i], NVML_TEMPERATURE_GPU,
                                      &metric.temperature_);
             nvmlDeviceGetUtilizationRates(devices_[i], &utilization);
             nvmlDeviceGetPowerUsage(devices_[i], &metric.power_);
+
+            nvmlDeviceGetEncoderUtilization(
+                devices_[i], &metric.encoder_utilization_, &ignore);
+            nvmlDeviceGetDecoderUtilization(
+                devices_[i], &metric.decoder_utilization_, &ignore);
 
             nvmlDeviceGetClockInfo(devices_[i], NVML_CLOCK_GRAPHICS,
                                    &metric.gpu_clocks_);
