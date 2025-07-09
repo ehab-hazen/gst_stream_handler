@@ -81,7 +81,7 @@ SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
             out << ",cpu" << c << "_usage";
         }
     }
-    out << ",ram_kb";
+    out << ",ram_kib";
     for (u32 g = 0; g < resource_monitor.GpuDeviceCount(); ++g) {
         out << ",gpu" << g << "_util"
             << ",gpu" << g << "_mem"
