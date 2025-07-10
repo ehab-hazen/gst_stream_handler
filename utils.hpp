@@ -1,9 +1,11 @@
 #pragma once
 
 #include "cstdlib"
+#include "gpu_sampler.hpp"
 #include "logging.hpp"
 #include "resource_monitor.hpp"
 #include "sys/resource.h"
+#include "types.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -62,6 +64,16 @@ static inline void IncreaseFileDescriptorLimit() {
     }
 }
 
+static inline void LogGpuMetadata(u32 id, const GpuSampler::Metadata &meta) {
+    INFO << "GPU " << id << ": " << meta.name_
+         << ", Memory: " << meta.memory_total_ << " MB"
+         << ", Power Limit: " << meta.power_limit_ << " mW"
+         << ", Max GPU Clock: " << meta.graphics_max_clock_ << " MHz"
+         << ", Max SM Clock: " << meta.sm_max_clock_ << " MHz"
+         << ", Max Video Clock: " << meta.vid_max_clock_ << " MHz"
+         << ", Max Mem Clock: " << meta.mem_max_clock_ << " MHz";
+}
+
 static inline void
 SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
                             const ResourceMonitor &resource_monitor,
@@ -81,16 +93,22 @@ SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
             out << ",cpu" << c << "_usage";
         }
     }
-    out << ",ram_kb";
+    out << ",ram_kib";
     for (u32 g = 0; g < resource_monitor.GpuDeviceCount(); ++g) {
         out << ",gpu" << g << "_util"
             << ",gpu" << g << "_mem"
+            << ",gpu" << g << "_enc_util"
+            << ",gpu" << g << "_dec_util"
             << ",gpu" << g << "_temp"
             << ",gpu" << g << "_power"
             << ",gpu" << g << "_gpu_clock"
             << ",gpu" << g << "_mem_clock"
             << ",gpu" << g << "_sm_clock"
-            << ",gpu" << g << "_vid_clock";
+            << ",gpu" << g << "_vid_clock"
+            << ",gpu" << g << "_gpu_clock_util"
+            << ",gpu" << g << "_mem_clock_util"
+            << ",gpu" << g << "_sm_clock_util"
+            << ",gpu" << g << "_vid_clock_util";
     }
     out << "\n";
 
@@ -116,9 +134,13 @@ SaveResourceUsageMetricsCsv(const cxxopts::ParseResult &args,
         out << "," << ram_kb;
 
         for (const auto &g : gpu_metric) {
-            out << "," << g.gpu_ << "," << g.memory_ << "," << g.temperature_
-                << "," << g.power_ << "," << g.gpu_clocks_ << ","
-                << g.mem_clocks_ << "," << g.sm_clocks_ << "," << g.vid_clocks_;
+            out << "," << g.gpu_ << "," << g.memory_ << ","
+                << g.encoder_utilization_ << "," << g.decoder_utilization_
+                << "," << g.temperature_ << "," << g.power_ << ","
+                << g.graphics_clocks_ << "," << g.mem_clocks_ << ","
+                << g.sm_clocks_ << "," << g.vid_clocks_ << ","
+                << g.graphics_clock_util_ << "," << g.mem_clock_util_ << ","
+                << g.sm_clock_util_ << "," << g.vid_clock_util_;
         }
 
         out << "\n";

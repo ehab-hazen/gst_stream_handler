@@ -59,13 +59,8 @@ auto StartResourceMonitor(const ResourceMonitor &resource_monitor,
         // Log GPU metadata
         for (u32 i = 0; i < resource_monitor.GpuDeviceCount(); ++i) {
             const auto &meta = resource_monitor.GetGpuMetadata(i);
-            INFO << "GPU " << i << ": " << meta.name
-                 << ", Memory: " << meta.memory_total << " MB"
-                 << ", Power Limit: " << meta.power_limit << " mW"
-                 << ", Max GPU Clock: " << meta.max_gpu_clock << " MHz"
-                 << ", Max Mem Clock: " << meta.max_mem_clock << " MHz";
+            utils::LogGpuMetadata(i, meta);
         }
-
         resource_monitor.LogCpuRamMetadata();
         return resource_monitor.Run(stop);
     });
