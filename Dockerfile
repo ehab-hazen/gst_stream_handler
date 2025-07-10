@@ -18,7 +18,6 @@ RUN apt update && apt install -y \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     libgstrtspserver-1.0-dev \
-    gstreamer1.0-libav \
     libbenchmark-dev \
     libgoogle-glog-dev \
     && rm -rf /var/lib/apt/lists/*
