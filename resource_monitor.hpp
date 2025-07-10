@@ -32,11 +32,27 @@ class ResourceMonitor {
         CpuRamMetrics cpu_ram_measurements;
         GpuMetrics gpu_measurements;
 
+        auto InternalMemUsage = [&cpu_ram_measurements, &gpu_measurements]() {
+            u32 internal_mem_usage = sizeof(ResourceMonitor);
+            internal_mem_usage += cpu_ram_measurements.capacity() *
+                                  sizeof(CpuRamSampler::Metrics);
+            for (const auto &gpus : gpu_measurements) {
+                internal_mem_usage +=
+                    gpus.capacity() * sizeof(GpuSampler::Metric);
+            }
+            return internal_mem_usage;
+        };
+
         while (!stop.load()) {
             // Wait before the first measurement to warm the caches.
             std::this_thread::sleep_for(
                 std::chrono::milliseconds(1000 / refresh_rate_));
-            cpu_ram_measurements.push_back(cpu_ram_sampler_.Sample());
+
+            CpuRamSampler::Metrics cpu_ram_sample = cpu_ram_sampler_.Sample();
+            // subtract the memory consumed by ResourceMonitor itself
+            cpu_ram_sample.usage_.ru_maxrss -= InternalMemUsage();
+
+            cpu_ram_measurements.push_back(cpu_ram_sample);
             gpu_measurements.push_back(gpu_sampler_.Sample());
         }
 
