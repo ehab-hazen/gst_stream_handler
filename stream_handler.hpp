@@ -147,18 +147,6 @@ class StreamHandler {
             "/1,pixel-aspect-ratio=1/1"
             " ! queue max-size-buffers=3 leaky=downstream"
             " ! appsink name=sink sync=false";
-
-        /*const std::string kAppsinkCaps =*/
-        /*    "video/x-raw,format=RGB,pixel-aspect-ratio=1/1";*/
-        /*const std::string frame_rate_caps =*/
-        /*    "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";*/
-        /*const std::string pipeline_description =*/
-        /*    "uridecodebin uri=" + stream_uri_ +*/
-        /*    " ! videoconvert ! videoscale !"*/
-        /*    " videorate " +*/
-        /*    frame_rate_caps +*/
-        /*    " ! queue max-size-buffers=3 leaky=downstream ! " +*/
-        /*    "appsink sync=false name=sink caps=\"" + kAppsinkCaps + "\"";*/
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
         CheckError(error);
 
