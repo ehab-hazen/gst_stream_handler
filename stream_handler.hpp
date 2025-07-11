@@ -132,17 +132,25 @@ class StreamHandler {
     void CreateNewPipeline() {
         GError *error = nullptr;
 
-        const std::string kAppsinkCaps =
-            "video/x-raw,format=RGB,pixel-aspect-ratio=1/1";
-        const std::string frame_rate_caps =
-            "max-rate=" + std::to_string(fps_limit_) + " drop-only=true";
         const std::string pipeline_description =
-            "uridecodebin uri=" + stream_uri_ +
-            " ! videoconvert ! videoscale !"
-            " videorate " +
-            frame_rate_caps +
-            " ! queue max-size-buffers=3 leaky=downstream ! " +
-            "appsink sync=false name=sink caps=\"" + kAppsinkCaps + "\"";
+            "rtspsrc location=" + stream_uri_ +
+            " latency=0"
+            " ! rtph264depay"
+            " ! h264parse"
+            " ! nvv4l2decoder"
+            " ! nvvideoconvert"
+            " ! video/x-raw,format=NV12" // Copy GPU buffers to
+                                         // CPU
+            " ! videorate max-rate=" +
+            std::to_string(fps_limit_) +
+            " drop-only=true"
+            " ! videoscale"
+            " ! videoconvert"
+            " ! video/x-raw,format=RGB,pixel-aspect-ratio=1/1" // Software color
+                                                               // conversion and
+                                                               // scaling
+            " ! queue max-size-buffers=3 leaky=downstream"
+            " ! appsink sync=false name=sink";
         pipeline_ = gst_parse_launch(pipeline_description.c_str(), &error);
         CheckError(error);
 
